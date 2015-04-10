@@ -4,8 +4,8 @@ import simplegui
 import random
 
 CARD_PAD = 5
-DEALER_CARD_POS = (0, 0)
-PLAYER_CARD_POS = (0, 200)
+DEALER_CARD_POS = (100, 150)
+PLAYER_CARD_POS = (100, 480)
 FONT_SIZE = 30
 # load card sprite - 936x384 - source: jfitz.com
 CARD_SIZE = (72, 96)
@@ -23,6 +23,8 @@ score = 0
 player = None
 dealer = None
 deck = None
+score = 0
+round_win = 0
 
 # define globals for cards
 SUITS = ('C', 'S', 'H', 'D')
@@ -95,32 +97,17 @@ class Hand:
 
         return ret
 
-    def drawScore(self, canvas, pos):
-        x, y = pos
-        score = self.get_value()
-
-        canvas.draw_text('score:', (x, y + FONT_SIZE), FONT_SIZE, 'Yellow')
-        y += 12
-        if score > 21:
-            color = "Red"
-        else:
-            color = "Yellow"
-        canvas.draw_text(str(score), (x, y + FONT_SIZE), FONT_SIZE, color)
-
 
 
     def draw(self, canvas, pos, hideHole=False):
-        self.drawScore(canvas, pos)
-
         x, y = pos
-        x += FONT_SIZE * 10
         for index, card in enumerate(self.cards):
             if hideHole and index == 0:
                 card.draw_back(canvas, (x, y))
 
             else:
                 card.draw(canvas, (x, y))
-            x += CARD_SIZE[0] + CARD_PAD
+            x += CARD_SIZE[0]/2
 
 
 class Deck:
@@ -134,7 +121,7 @@ class Deck:
         self.shuffle()
 
     def __str__(self):
-        ret = "#Deck contains"
+        ret = "Deck contains"
         for card in self.cards:
             ret += " "
             ret += str(card)
@@ -151,8 +138,13 @@ class Deck:
 
 #define event handlers for buttons
 def deal():
-    global outcome, in_play, deck, player, dealer
+    global outcome, in_play, deck, player, dealer, round_win, score
+
+    if in_play:
+        score -= 1
+
     # your code goes here
+    round_win = 0
     in_play = True
     deck = Deck()
     player = Hand()
@@ -174,35 +166,94 @@ def hit():
         player.add_card(deck.deal_card())
         val = player.get_value()
         if val > 21:
-            in_play = False
             result()
-    else:
-        stand()
+
 
 def stand():
     global outcome, in_play, deck, player, dealer
     # if hand is in play, repeatedly hit dealer until his hand has value 17 or more
     # assign a message to outcome, update in_play and score
     if in_play:
-        while in_play:
+        while dealer.get_value() < 17:
             dealer.add_card(deck.deal_card())
-            val = dealer.get_value()
-            if val > 21:
-                in_play = False
-            elif val >= 17:
-                in_play = False
-
-    result()
-
+        result()
 
 def result():
-    pass
+    global in_play, player, dealer, score, round_win
+    in_play = False
+    dealer_value = dealer.get_value()
+    player_value = player.get_value()
+
+    round_win = 0
+    if dealer_value > 21:
+        round_win = 1
+    else:
+        if player_value > 21:
+            pass
+        else:
+            if player_value > dealer_value:
+                round_win = 1
+
+    if round_win:
+        score += 1
+    else:
+        score -= 1
+
+
 
 # draw handler
 def draw(canvas):
-    global outcome, in_play, deck, player, dealer
+    global outcome, in_play, deck, player, dealer, score, round_win
+
+
+    dealer_info = "Dealer: "
+    player_info = "Player: "
+    dealer_value = dealer.get_value()
+    player_value = player.get_value()
+
+    player_info += "%d"%player_value
+    if player_value > 21:
+        player_info += " Busted!"
+
+
+    if not in_play:
+        dealer_info += "%d"%dealer_value
+        if dealer_value > 21:
+            dealer_info += " Busted!"
+    else:
+        dealer_info += "?"
+
+
+    if round_win > 0:
+        msg = "You Win!"
+    else:
+        msg = "You Lose!"
+
+
+
+
+    canvas.draw_text('Blackjack', (30, 50), FONT_SIZE*2, 'Yellow')
+    canvas.draw_text('Score: %d'%score, (330, 50), FONT_SIZE, 'Black')
+    canvas.draw_line([0, 70], [600, 70], 5, 'Blue')
+
+    canvas.draw_text(dealer_info, (DEALER_CARD_POS[0], DEALER_CARD_POS[1] - 20), FONT_SIZE, 'Black')
     dealer.draw(canvas, DEALER_CARD_POS, in_play)
+
+
+
+    if in_play:
+        canvas.draw_text('Hit or Stand?', (100, 380), FONT_SIZE, 'White')
+    else:
+        canvas.draw_text(msg, (100, 330), FONT_SIZE*2, 'Yellow')
+        canvas.draw_text('New Deal?', (100, 380), FONT_SIZE, 'White')
+
+
+    canvas.draw_text(player_info, (PLAYER_CARD_POS[0], PLAYER_CARD_POS[1] - 20), FONT_SIZE, 'Black')
     player.draw(canvas, PLAYER_CARD_POS)
+
+
+
+
 
 
 # initialization frame
@@ -214,6 +265,7 @@ frame.add_button("Deal", deal, 200)
 frame.add_button("Hit",  hit, 200)
 frame.add_button("Stand", stand, 200)
 frame.set_draw_handler(draw)
+
 
 
 # get things rolling
